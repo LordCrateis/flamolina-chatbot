@@ -1,0 +1,9 @@
+sentence-transformers
+supabase
+pypdf
+requests
+python-dotenv
+groq
+fastapi
+uvicorn
+pydantic
