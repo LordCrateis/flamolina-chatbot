@@ -2,9 +2,9 @@ import os
 import re
 import requests
 # pyrefly: ignore [missing-import]
-from pypdf import PdfReader
+from huggingface_hub import InferenceClient
 # pyrefly: ignore [missing-import]
-from sentence_transformers import SentenceTransformer
+from pypdf import PdfReader
 # pyrefly: ignore [missing-import]
 from supabase import create_client
 # pyrefly: ignore [missing-import]
@@ -17,12 +17,31 @@ SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 GITHUB_USERNAME = os.environ["GITHUB_USERNAME"]
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 RESUME_PATH = os.environ["RESUME_PATH"]
+HF_TOKEN = os.environ["HF_TOKEN"]
 
-CHUNK_SIZE = 500       # characters per chunk
-CHUNK_OVERLAP = 100    # overlap between chunks for context continuity
+
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 100
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-model = SentenceTransformer("all-MiniLM-L6-v2")
+
+
+client_hf = InferenceClient(
+    token=HF_TOKEN,
+    provider="hf-inference"
+)
+
+
+def embed_batch(texts: list[str]) -> list[list[float]]:
+    embeddings = client_hf.feature_extraction(
+        text=texts,
+        model="sentence-transformers/all-MiniLM-L6-v2"
+    )
+
+    if hasattr(embeddings, "tolist"):
+        embeddings = embeddings.tolist()
+
+    return embeddings
 
 
 def chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
@@ -47,11 +66,11 @@ def ingest_resume():
     chunks = chunk_text(text)
     print(f"  {len(chunks)} chunks")
 
-    supabase.table("resume_chunks").delete().neq("id", 0).execute()  # clear old data
+    supabase.table("resume_chunks").delete().neq("id", 0).execute()
 
-    embeddings = model.encode(chunks, show_progress_bar=True)
+    embeddings = embed_batch(chunks)
     rows = [
-        {"content": chunk, "embedding": emb.tolist()}
+        {"content": chunk, "embedding": emb}
         for chunk, emb in zip(chunks, embeddings)
     ]
     supabase.table("resume_chunks").insert(rows).execute()
@@ -82,7 +101,7 @@ def ingest_readmes():
     repos = get_github_repos()
     print(f"  {len(repos)} repos found")
 
-    supabase.table("readme_chunks").delete().neq("id", 0).execute()  # clear old data
+    supabase.table("readme_chunks").delete().neq("id", 0).execute()
 
     all_rows = []
     for repo in repos:
@@ -96,12 +115,12 @@ def ingest_readmes():
         if not chunks:
             continue
 
-        embeddings = model.encode(chunks)
+        embeddings = embed_batch(chunks)
         for chunk, emb in zip(chunks, embeddings):
             all_rows.append({
                 "project_slug": name,
                 "content": chunk,
-                "embedding": emb.tolist(),
+                "embedding": emb,
             })
         print(f"  {name}: {len(chunks)} chunks")
 

@@ -1,27 +1,46 @@
 import os
+import re
 from pathlib import Path
+import requests
 # pyrefly: ignore [missing-import]
-from sentence_transformers import SentenceTransformer
+from huggingface_hub import InferenceClient
 # pyrefly: ignore [missing-import]
 from supabase import create_client
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
-    
+
 load_dotenv()
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+HF_TOKEN = os.environ["HF_TOKEN"]
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-model = SentenceTransformer("all-MiniLM-L6-v2")
 
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 100
 PERSONAL_DIR = Path(__file__).parent.parent / "personal"
 
 
+client_hf = InferenceClient(
+    token=HF_TOKEN,
+    provider="hf-inference"
+)
+
+
+def embed_batch(texts: list[str]) -> list[list[float]]:
+    embeddings = client_hf.feature_extraction(
+        text=texts,
+        model="sentence-transformers/all-MiniLM-L6-v2"
+    )
+
+    if hasattr(embeddings, "tolist"):
+        embeddings = embeddings.tolist()
+
+    return embeddings
+
+
 def chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
-    import re
     text = re.sub(r"\s+", " ", text).strip()
     chunks = []
     start = 0
@@ -46,12 +65,12 @@ def ingest_personal():
         if not chunks:
             continue
 
-        embeddings = model.encode(chunks)
+        embeddings = embed_batch(chunks)
         for chunk, emb in zip(chunks, embeddings):
             all_rows.append({
                 "source_file": file_path.stem,
                 "content": chunk,
-                "embedding": emb.tolist(),
+                "embedding": emb,
             })
         print(f"  {file_path.name}: {len(chunks)} chunks")
 

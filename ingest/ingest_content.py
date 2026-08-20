@@ -1,8 +1,9 @@
 import os
 import re
-from html import unescape
+import requests
 # pyrefly: ignore [missing-import]
-from sentence_transformers import SentenceTransformer
+from huggingface_hub import InferenceClient
+from html import unescape
 # pyrefly: ignore [missing-import]
 from supabase import create_client
 # pyrefly: ignore [missing-import]
@@ -12,12 +13,31 @@ load_dotenv()
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+HF_TOKEN = os.environ["HF_TOKEN"]
+
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-model = SentenceTransformer("all-MiniLM-L6-v2")
 
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 100
+
+
+client_hf = InferenceClient(
+    token=HF_TOKEN,
+    provider="hf-inference"
+)
+
+
+def embed_batch(texts: list[str]) -> list[list[float]]:
+    embeddings = client_hf.feature_extraction(
+        text=texts,
+        model="sentence-transformers/all-MiniLM-L6-v2"
+    )
+
+    if hasattr(embeddings, "tolist"):
+        embeddings = embeddings.tolist()
+
+    return embeddings
 
 
 def strip_html(html: str) -> str:
@@ -49,8 +69,6 @@ def ingest_blogs():
     all_rows = []
     for blog in blogs:
         text = strip_html(blog.get("content") or "")
-
-        # Prepend structured metadata so it's part of the searchable/retrievable text
         meta_line = (
             f"Blog post: {blog['title']}. Category: {blog.get('category', 'N/A')}. "
             f"Published: {blog.get('published_at', 'N/A')}. Likes: {blog.get('like_count', 0)}."
@@ -61,19 +79,20 @@ def ingest_blogs():
         if not chunks:
             continue
 
-        embeddings = model.encode(chunks)
+        embeddings = embed_batch(chunks)
         for chunk, emb in zip(chunks, embeddings):
             all_rows.append({
                 "blog_id": blog["id"],
                 "title": blog["title"],
                 "content": chunk,
-                "embedding": emb.tolist(),
+                "embedding": emb,
             })
         print(f"  {blog['title']}: {len(chunks)} chunks")
 
     if all_rows:
         supabase.table("blog_chunks").insert(all_rows).execute()
     print("Blogs ingested.")
+
 
 def ingest_projects():
     print("Fetching projects...")
@@ -99,13 +118,13 @@ def ingest_projects():
         if not chunks:
             continue
 
-        embeddings = model.encode(chunks)
+        embeddings = embed_batch(chunks)
         for chunk, emb in zip(chunks, embeddings):
             all_rows.append({
                 "project_id": proj["id"],
                 "title": proj["title"],
                 "content": chunk,
-                "embedding": emb.tolist(),
+                "embedding": emb,
             })
         print(f"  {proj['title']}: {len(chunks)} chunks")
 

@@ -1,4 +1,3 @@
-sentence-transformers
 supabase
 pypdf
 requests
@@ -7,3 +6,5 @@ groq
 fastapi
 uvicorn
 pydantic
+numpy
+huggingface_hub

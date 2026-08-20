@@ -1,27 +1,40 @@
-from concurrent.futures import ThreadPoolExecutor
 import os
-# pyrefly: ignore [missing-import]
-from sentence_transformers import SentenceTransformer
-# pyrefly: ignore [missing-import]
-from supabase import create_client
+from concurrent.futures import ThreadPoolExecutor
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
+# pyrefly: ignore [missing-import]
+from huggingface_hub import InferenceClient
+# pyrefly: ignore [missing-import]
+from supabase import create_client
 
 load_dotenv()
 
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+HF_TOKEN = os.environ.get("HF_TOKEN")
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
+# Initialize Hugging Face Inference Client
+client_hf = InferenceClient(token=HF_TOKEN)
 
 
 def embed_query(query: str) -> list[float]:
-    return model.encode(query).tolist()
+    if not HF_TOKEN:
+        raise ValueError("HF_TOKEN is missing or not loaded from environment variables.")
+
+    # Calls the feature-extraction pipeline cleanly via official client
+    embeddings = client_hf.feature_extraction(
+        text=query,
+        model="sentence-transformers/all-MiniLM-L6-v2"
+    )
+    
+    # Flatten if returned as nested list
+    if isinstance(embeddings, list) and isinstance(embeddings[0], list):
+        return embeddings[0]
+    return embeddings.tolist() if hasattr(embeddings, "tolist") else list(embeddings)
 
 
 def _rpc_call(function_name: str, query_embedding: list, match_count: int):
-    # Fresh client per call avoids sharing one HTTP/2 connection pool across threads,
-    # which is unsafe on Windows and causes intermittent ReadError crashes.
+    # Fresh client per call avoids sharing HTTP/2 connection pool across threads
     client = create_client(SUPABASE_URL, SUPABASE_KEY)
     result = client.rpc(
         function_name,
