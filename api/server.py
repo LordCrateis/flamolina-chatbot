@@ -1,9 +1,13 @@
 import os
 from typing import Any
-
+import traceback
+# pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
+# pyrefly: ignore [missing-import]
 from fastapi import FastAPI, HTTPException
+# pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel, Field
 
 from api.router import get_flamolina_response
@@ -65,6 +69,11 @@ def chat(payload: ChatRequest) -> ChatResponse:
             normalize_history(payload.history),
         )
     except Exception as error:
-        raise HTTPException(status_code=500, detail="Flamolina could not complete that request.") from error
+        print("FLAMOLINA ERROR:", repr(error))
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail="Flamolina could not complete that request."
+        ) from error
 
     return ChatResponse(answer=answer or "I have nothing useful to add to that.", history=updated_history)
