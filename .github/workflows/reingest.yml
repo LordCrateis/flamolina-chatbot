@@ -1,4 +1,4 @@
-name: Re-ingest blog and project content
+name: Re-ingest blog and project contents
 on:
   schedule:
     - cron: '0 */6 * * *'  # every 6 hours
@@ -17,4 +17,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_USERNAME: ${{ secrets.GH_USERNAME }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: python -m ingest.ingest_content
