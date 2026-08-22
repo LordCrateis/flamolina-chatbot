@@ -25,3 +25,12 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           FLAMOLINA_ALLOWED_ORIGINS: ${{ secrets.FLAMOLINA_ALLOWED_ORIGINS }}
         run: python -m ingest.ingest_content
+      - name: Run README ingestion
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_USERNAME: ${{ secrets.GH_USERNAME }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          RESUME_PATH: ${{ secrets.RESUME_PATH }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python -m ingest.ingest
