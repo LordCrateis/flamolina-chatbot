@@ -19,4 +19,9 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GITHUB_USERNAME: ${{ secrets.GH_USERNAME }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          RESUME_PATH: ${{ secrets.RESUME_PATH }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GNEWS_API_KEY: ${{ secrets.GNEWS_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          FLAMOLINA_ALLOWED_ORIGINS: ${{ secrets.FLAMOLINA_ALLOWED_ORIGINS }}
         run: python -m ingest.ingest_content
