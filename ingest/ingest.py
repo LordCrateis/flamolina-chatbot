@@ -61,6 +61,10 @@ def extract_resume_text(path: str) -> str:
 
 
 def ingest_resume():
+    if not os.path.exists(RESUME_PATH):
+        print(f"Resume not found at {RESUME_PATH}, skipping.")
+        return
+
     print("Extracting resume text...")
     text = extract_resume_text(RESUME_PATH)
     chunks = chunk_text(text)
